@@ -68,6 +68,7 @@ IGameConfig *g_pGameConf = NULL;
 bool g_Loaded = false;
 bool sm_show_debug_spew = false;
 bool sm_disable_jit = false;
+int jit_metadata_flags = JIT_DEBUG_DELETE_ON_EXIT | JIT_DEBUG_PERF_BASIC;
 SMGlobalClass *SMGlobalClass::head = nullptr;
 
 #ifdef PLATFORM_WINDOWS
@@ -132,6 +133,31 @@ ConfigResult SourceModBase::OnSourceModConfigChanged(const char *key,
 		sm_disable_jit = (strcasecmp(value, "yes") == 0) ? true : false;
 		if (g_pSourcePawn2)
 			g_pSourcePawn2->SetJitEnabled(!sm_disable_jit);
+
+		return ConfigResult_Accept;
+	}
+	else if (strcasecmp(key, "JITMetadata") == 0)
+	{
+		/* TODO: Support a comma-separated list of these */
+		if (strcasecmp(value, "none") == 0) {
+			jit_metadata_flags = 0;
+		}
+		else if (strcasecmp(value, "default") == 0) {
+			jit_metadata_flags = JIT_DEBUG_DELETE_ON_EXIT | JIT_DEBUG_PERF_BASIC;
+		}
+		else if (strcasecmp(value, "perf") == 0) {
+			jit_metadata_flags = JIT_DEBUG_PERF_BASIC;
+		}
+		else if (strcasecmp(value, "jitdump") == 0) {
+			jit_metadata_flags = JIT_DEBUG_PERF_BASIC | JIT_DEBUG_PERF_JITDUMP;
+		}
+		else {
+			return ConfigResult_Reject;
+		}
+
+		if (g_pPawnEnv) {
+			g_pPawnEnv->SetDebugMetadataFlags(jit_metadata_flags);
+		}
 
 		return ConfigResult_Accept;
 	}
@@ -241,6 +267,8 @@ bool SourceModBase::InitializeSourceMod(char *error, size_t maxlength, bool late
 
 	if (sm_disable_jit)
 		g_pSourcePawn2->SetJitEnabled(!sm_disable_jit);
+
+	g_pPawnEnv->SetDebugMetadataFlags(jit_metadata_flags);
 
 	sSourceModInitialized = true;
 
